@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const dir = 'C:\\Users\\houhuixin\\Desktop\\企业知识库部署\\frontend';
+const dir = __dirname;
 const port = 3000;
 
 http.createServer((req, res) => {

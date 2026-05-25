@@ -6,17 +6,29 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8088:8088"
+      - "${BACKEND_PORT:-8088}:8088"
     environment:
       - RAGFLOW_URL=${RAGFLOW_URL:-http://ragflow:9380}
-      - RAGFLOW_API_KEY=${RAGFLOW_API_KEY}
+      - RAGFLOW_API_KEY=${RAGFLOW_API_KEY:?RAGFLOW_API_KEY is required}
+      - RAGFLOW_EMBEDDING_MODEL=${RAGFLOW_EMBEDDING_MODEL:-BAAI/bge-large-zh-v1.5@BAAI}
+      - RAGFLOW_CHUNK_METHOD=${RAGFLOW_CHUNK_METHOD:-naive}
+      - RAGFLOW_LLM_MODEL=${RAGFLOW_LLM_MODEL:-deepseek-chat@DeepSeek}
       - DINGTALK_APPID=${DINGTALK_APPID:-}
       - DINGTALK_APPSECRET=${DINGTALK_APPSECRET:-}
-      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key-in-production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
       - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/permission_admin.db}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - HOST=0.0.0.0
+      - PORT=8088
     volumes:
       - backend_data:/app/data
       - backend_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8088/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
 
   frontend:
@@ -24,9 +36,18 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - BACKEND_URL=${BACKEND_URL:-http://backend:8088}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', r => process.exit(r.statusCode===200?0:1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
 volumes:

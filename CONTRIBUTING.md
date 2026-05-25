@@ -47,7 +47,7 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 ```bash
 # Clone your fork
-git clone https://github.com/YOUR_USERNAME/RAGSentinel.git
+git clone https://github.com/H2110202/RAGSentinel.git
 cd RAGSentinel
 
 # Backend setup

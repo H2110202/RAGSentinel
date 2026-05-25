@@ -134,7 +134,7 @@ KB Permission:  Engineering Dept → View
 ### 1. Clone & Setup
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/RAGSentinel.git
+git clone https://github.com/H2110202/RAGSentinel.git
 cd RAGSentinel
 ```
 
@@ -150,8 +150,10 @@ cp .env.example .env
 ```bash
 cd backend
 pip install -r requirements.txt
+python init_db.py    # Initialize database with default admin user
 python run.py
 # Backend runs at http://localhost:8088
+# API docs at http://localhost:8088/docs
 ```
 
 ### 4. Start Frontend
@@ -165,6 +167,8 @@ node server.js
 ### 5. Docker Compose (Production)
 
 ```bash
+cp .env.example .env
+# Edit .env with your configuration (RAGFLOW_API_KEY and SECRET_KEY are required)
 docker compose up -d
 ```
 
@@ -263,20 +267,21 @@ Default admin account:
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/YOUR_USERNAME/RAGSentinel.git
+git clone https://github.com/H2110202/RAGSentinel.git
 cd RAGSentinel
 
 # 2. 配置环境变量
 cp .env.example .env
 
 # 3. 启动后端
-cd backend && pip install -r requirements.txt && python run.py
+cd backend && pip install -r requirements.txt && python init_db.py && python run.py
 
 # 4. 启动前端
 cd frontend && node server.js
 
 # 5. 访问 http://localhost:3000
 # 默认账号: admin / admin123
+# API文档: http://localhost:8088/docs
 ```
 
 ## Roadmap
