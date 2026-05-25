@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAGSentinel - 企业知识库权限管理平台</title>
+<link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://unpkg.com/element-plus"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:#f0f2f5}
+.login-bg{height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f 0%,#2b5fad 50%,#1a6b8a 100%)}
+.login-card{background:#fff;border-radius:12px;padding:48px 40px;width:420px;box-shadow:0 8px 40px rgba(0,0,0,.2)}
+.login-card h2{text-align:center;margin:0 0 8px;color:#1e3a5f;font-size:22px;font-weight:600}
+.login-card .sub{text-align:center;color:#909399;font-size:13px;margin-bottom:32px}
+.login-input{width:100%;height:44px;border:1px solid #dcdfe6;border-radius:8px;padding:0 16px;font-size:14px;outline:none;transition:border-color .2s}
+.login-input:focus{border-color:#2b5fad;box-shadow:0 0 0 2px rgba(43,95,173,.15)}
+.login-btn{width:100%;height:44px;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-weight:500;transition:all .2s}
+.login-btn-primary{background:#2b5fad;color:#fff}
+.login-btn-primary:hover{background:#3a6fc4}
+.login-btn-primary:disabled{background:#a0c4f1;cursor:not-allowed}
+.login-btn-ghost{background:#fff;color:#606266;border:1px solid #dcdfe6;margin-top:12px}
+.login-btn-ghost:hover{border-color:#2b5fad;color:#2b5fad}
+.app-header{background:linear-gradient(90deg,#1e3a5f,#2b5fad);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.app-header h2{font-size:17px;font-weight:500;letter-spacing:1px}
+.app-sidebar{width:220px;background:#1e2a3a;overflow-y:auto;transition:width .3s}
+.app-sidebar .el-menu{border-right:none}
+.app-main{background:#f0f2f5;padding:20px;flex:1;overflow:auto;min-height:0}
+.dept-tree-node{display:flex;align-items:center;width:100%;justify-content:space-between}
+.dept-tree-node .name{font-size:14px;color:#e0e0e0}
+.dept-tree-node .count{font-size:12px;color:#8899aa}
+.stat-card{text-align:center;padding:20px 0}
+.stat-card .num{font-size:36px;font-weight:700;margin-bottom:4px}
+.stat-card .label{font-size:13px;color:#909399}
+.kb-detail{margin-top:16px;border:1px solid #e4e7ed;border-radius:8px;background:#fff;padding:20px}
+.perm-tag{margin:2px}
+.step-flow{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.step-flow .step-item{background:#ecf5ff;color:#409eff;padding:4px 12px;border-radius:4px;font-size:12px}
+.step-flow .step-arrow{color:#c0c4cc;font-size:14px}
+.el-table .el-button--small{padding:5px 10px}
+.section-title{font-size:16px;font-weight:600;color:#303133;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between}
+.el-dialog__body{padding-top:12px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div v-if="!currentUser" class="login-bg">
+  <div class="login-card">
+    <h2>RAGSentinel</h2>
+    <p class="sub">Enterprise Knowledge Base Permission Gateway</p>
+    <div style="margin-bottom:20px">
+      <label style="display:block;margin-bottom:6px;color:#606266;font-size:13px;font-weight:500">用户名</label>
+      <input class="login-input" v-model="loginForm.username" placeholder="请输入用户名" @keyup.enter="doLogin">
+    </div>
+    <div style="margin-bottom:28px">
+      <label style="display:block;margin-bottom:6px;color:#606266;font-size:13px;font-weight:500">密码</label>
+      <input class="login-input" type="password" v-model="loginForm.password" placeholder="请输入密码" @keyup.enter="doLogin">
+    </div>
+    <button class="login-btn login-btn-primary" @click="doLogin" :disabled="loading">{{loading?'登录中...':'登 录'}}</button>
+    <button class="login-btn login-btn-ghost" @click="showRegister=true">注册新账号</button>
+    <div v-if="loginError" style="color:#f56c6c;font-size:13px;margin-top:14px;text-align:center">{{loginError}}</div>
+  </div>
+</div>
+
+<el-container v-else style="height:100vh">
+  <el-header class="app-header">
+    <h2>🛡️ RAGSentinel</h2>
+    <el-dropdown trigger="click" @command="handleHeaderCmd">
+      <span style="color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:6px">
+        <el-avatar :size="28" style="background:#67c23a">{{(currentUser.full_name||currentUser.username||'?')[0]}}</el-avatar>
+        {{currentUser.full_name||currentUser.username}}
+        <span style="font-size:12px;opacity:.7">({{currentUser.role==='admin'?'管理员':'用户'}})</span>
+        <i style="font-size:12px">▾</i>
+      </span>
+      <template #dropdown>
+        <el-dropdown-menu>
+          <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+        </el-dropdown-menu>
+      </template>
+    </el-dropdown>
+  </el-header>
+  <el-container>
+    <el-aside class="app-sidebar" width="220px">
+      <el-menu :default-active="tab" background-color="#1e2a3a" text-color="#b0bec5" active-text-color="#409eff" @select="onMenuSelect" style="padding-top:8px">
+        <el-menu-item index="dashboard">
+          <span>📊 工作台</span>
+        </el-menu-item>
+        <el-menu-item index="orgPeople" v-if="currentUser.role==='admin'">
+          <span>🏢 组织与人员</span>
+        </el-menu-item>
+        <el-menu-item index="knowledge">
+          <span>📚 知识库管理</span>
+        </el-menu-item>
+        <el-menu-item index="approval">
+          <span>✅ 审批管理</span>
+        </el-menu-item>
+        <el-menu-item index="groups">
+          <span>📁 项目组管理</span>
+        </el-menu-item>
+        <el-menu-item index="dingtalk">
+          <span>🔗 钉钉同步</span>
+        </el-menu-item>
+        <el-menu-item index="ragflow">
+          <span>🤖 RAGFlow对接</span>
+        </el-menu-item>
+        <el-menu-item index="chat">
+          <span>💬 智能体对话</span>
+        </el-menu-item>
+      </el-menu>
+    </el-aside>
+    <el-main class="app-main">
+
+      <!-- ==================== 工作台 ==================== -->
+      <div v-if="tab==='dashboard'">
+        <el-row :gutter="16" style="margin-bottom:20px">
+          <el-col :span="6">
+            <el-card shadow="hover"><div class="stat-card"><div class="num" style="color:#409eff">{{stats.users}}</div><div class="label">用户总数</div></div></el-card>
+          </el-col>
+          <el-col :span="6">
+            <el-card shadow="hover"><div class="stat-card"><div class="num" style="color:#67c23a">{{stats.depts}}</div><div class="label">部门总数</div></div></el-card>
+          </el-col>
+          <el-col :span="6">
+            <el-card shadow="hover"><div class="stat-card"><div class="num" style="color:#e6a23c">{{stats.kbs}}</div><div class="label">知识库总数</div></div></el-card>
+          </el-col>
+          <el-col :span="6">
+            <el-card shadow="hover"><div class="stat-card"><div class="num" style="color:#f56c6c">{{stats.pending}}</div><div class="label">待审批</div></div></el-card>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-card shadow="hover">
+              <template #header><span style="font-weight:600">快捷入口</span></template>
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <el-button @click="tab='knowledge'" style="justify-content:flex-start" text>
+                  <span style="margin-right:8px">📚</span> 知识库管理 — 创建和管理知识库
+                </el-button>
+                <el-button @click="tab='approval'" style="justify-content:flex-start" text>
+                  <span style="margin-right:8px">✅</span> 审批管理 — 处理待审批文档
+                </el-button>
+                <el-button @click="tab='groups'" style="justify-content:flex-start" text>
+                  <span style="margin-right:8px">📁</span> 项目组管理 — 管理项目组成员
+                </el-button>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="12">
+            <el-card shadow="hover">
+              <template #header><span style="font-weight:600">系统信息</span></template>
+              <div style="font-size:13px;color:#606266;line-height:2.2">
+                <div>当前用户：<b>{{currentUser.full_name||currentUser.username}}</b></div>
+                <div>用户角色：<el-tag :type="currentUser.role==='admin'?'danger':'info'" size="small">{{currentUser.role==='admin'?'系统管理员':'普通用户'}}</el-tag></div>
+                <div>项目组数：<b>{{stats.groups}}</b></div>
+                <div>审批链数：<b>{{stats.chains}}</b></div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </div>
+
+      <!-- ==================== 组织与人员 ==================== -->
+      <div v-if="tab==='orgPeople'">
+        <el-row :gutter="16">
+          <el-col :span="6">
+            <el-card style="min-height:600px">
+              <template #header><span style="font-weight:600">组织架构 ({{stats.depts}}个部门)</span></template>
+              <el-tree
+                :data="deptTree"
+                :props="{label:'name',children:'children'}"
+                node-key="id"
+                default-expand-all
+                highlight-current
+                @node-click="onDeptNodeClick"
+                :expand-on-click-node="false"
+                style="max-height:540px;overflow:auto"
+              >
+                <template #default="{data}">
+                  <div class="dept-tree-node">
+                    <span style="font-size:14px">{{data.name}}</span>
+                    <span style="font-size:12px;color:#8899aa">{{data.total_count}}人</span>
+                  </div>
+                </template>
+              </el-tree>
+            </el-card>
+          </el-col>
+          <el-col :span="18">
+            <el-card style="min-height:600px">
+              <template #header>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <el-radio-group v-model="orgSubTab" size="small">
+                    <el-radio-button label="byDept">按部门查看</el-radio-button>
+                    <el-radio-button label="allUsers">全部人员</el-radio-button>
+                  </el-radio-group>
+                  <el-input v-if="orgSubTab==='allUsers'" v-model="userSearch" placeholder="搜索姓名/用户名" size="small" style="width:240px" clearable />
+                </div>
+              </template>
+
+              <div v-if="orgSubTab==='byDept'">
+                <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+                  <span style="font-weight:600">{{selectedDeptName?selectedDeptName+' — 成员列表':'请选择部门'}}</span>
+                  <el-tag v-if="deptMembers.length" size="small" type="info">{{deptMembers.length}}人</el-tag>
+                </div>
+                <el-table v-if="deptMembers.length" :data="deptMembers" stripe border style="width:100%">
+                  <el-table-column label="序号" width="60">
+                    <template #default="s">{{s.$index+1}}</template>
+                  </el-table-column>
+                  <el-table-column label="姓名" min-width="120">
+                    <template #default="s">{{s.row.full_name}}</template>
+                  </el-table-column>
+                  <el-table-column label="角色" width="120">
+                    <template #default="s">
+                      <el-tag v-if="s.row.role==='admin'" type="danger" size="small">系统管理员</el-tag>
+                      <el-tag v-else-if="s.row.is_department_admin" type="warning" size="small">部门管理员</el-tag>
+                      <el-tag v-else type="info" size="small">普通员工</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="状态" width="80">
+                    <template #default="s">
+                      <span :style="{color:s.row.is_active?'#67c23a':'#f56c6c',fontWeight:500}">{{s.row.is_active?'在职':'离职'}}</span>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <el-empty v-else description="点击左侧部门查看成员" />
+              </div>
+
+              <div v-if="orgSubTab==='allUsers'">
+                <el-table :data="filteredUsers" stripe max-height="560">
+                  <el-table-column label="ID" width="60">
+                    <template #default="s">{{s.row.id}}</template>
+                  </el-table-column>
+                  <el-table-column label="姓名" min-width="100">
+                    <template #default="s">{{s.row.full_name||'-'}}</template>
+                  </el-table-column>
+                  <el-table-column label="用户名" min-width="140">
+                    <template #default="s">{{s.row.username}}</template>
+                  </el-table-column>
+                  <el-table-column label="邮箱" min-width="180">
+                    <template #default="s">{{s.row.email||'-'}}</template>
+                  </el-table-column>
+                  <el-table-column label="所属部门" min-width="200">
+                    <template #default="s">
+                      <el-tag v-for="n in (s.row.department_names||[])" :key="n" size="small" style="margin:2px">{{n}}</el-tag>
+                      <span v-if="!(s.row.department_names||[]).length" style="color:#c0c4cc">-</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="角色" width="90">
+                    <template #default="s">
+                      <el-tag :type="s.row.role==='admin'?'danger':'info'" size="small">{{s.row.role==='admin'?'管理员':'用户'}}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="状态" width="80">
+                    <template #default="s">
+                      <el-tag :type="s.row.is_active?'success':'info'" size="small">{{s.row.is_active?'正常':'禁用'}}</el-tag>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </div>
+
+      <!-- ==================== 知识库管理 ==================== -->
+      <div v-if="tab==='knowledge'">
+        <div style="margin-bottom:16px;display:flex;align-items:center;gap:16px">
+          <el-button type="primary" size="large" @click="openUploadDialog" style="height:52px;font-size:16px;padding:0 36px;border-radius:10px;box-shadow:0 4px 12px rgba(64,158,255,.35)">
+            <span style="font-size:22px;margin-right:10px">📤</span> 上传文档
+          </el-button>
+          <span style="color:#909399;font-size:13px">支持 PDF、Word、TXT、Markdown、Excel、PPT、CSV 格式，可批量上传</span>
+        </div>
+        <el-card>
+          <template #header>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600">知识库列表 ({{kbList.length}}个)</span>
+              <el-button type="primary" size="small" @click="openKbCreate">+ 新建知识库</el-button>
+            </div>
+          </template>
+          <el-table :data="kbList" stripe highlight-current-row @row-click="onKbRowClick" style="cursor:pointer">
+            <el-table-column label="ID" width="60">
+              <template #default="s">{{s.row.id}}</template>
+            </el-table-column>
+            <el-table-column label="知识库名称" min-width="160">
+              <template #default="s"><b>{{s.row.name}}</b></template>
+            </el-table-column>
+            <el-table-column label="描述" min-width="200">
+              <template #default="s">{{s.row.description||'-'}}</template>
+            </el-table-column>
+            <el-table-column label="可见性" width="90">
+              <template #default="s">
+                <el-tag :type="s.row.is_public?'success':'warning'" size="small">{{s.row.is_public?'公开':'私有'}}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="创建者" width="100">
+              <template #default="s">{{s.row.creator_name||'-'}}</template>
+            </el-table-column>
+            <el-table-column label="文档数" width="80">
+              <template #default="s">{{s.row.doc_count||0}}</template>
+            </el-table-column>
+            <el-table-column label="权限数" width="80">
+              <template #default="s">{{(s.row.permissions||[]).length}}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="200" fixed="right">
+              <template #default="s">
+                <el-button size="small" type="primary" text @click.stop="openKbEdit(s.row)">编辑</el-button>
+                <el-button size="small" type="danger" text @click.stop="doDeleteKb(s.row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+
+        <div v-if="selectedKb" class="kb-detail">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div>
+              <span style="font-size:16px;font-weight:600">{{selectedKb.name}}</span>
+              <el-tag :type="selectedKb.is_public?'success':'warning'" size="small" style="margin-left:8px">{{selectedKb.is_public?'公开':'私有'}}</el-tag>
+            </div>
+            <el-button size="small" @click="selectedKb=null">关闭详情</el-button>
+          </div>
+          <el-tabs v-model="kbDetailTab">
+            <el-tab-pane label="文档管理" name="docs">
+              <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px">
+                <el-upload
+                  :http-request="(p)=>uploadDoc(selectedKb.id,p)"
+                  :show-file-list="false"
+                  :limit="1"
+                  accept=".pdf,.doc,.docx,.txt,.md,.xlsx,.pptx,.csv"
+                >
+                  <el-button type="primary" size="small">上传文档</el-button>
+                </el-upload>
+                <el-button size="small" @click="loadKbDocs(selectedKb.id)">刷新</el-button>
+              </div>
+              <el-table :data="kbDocs" stripe max-height="400" v-loading="kbDocsLoading">
+                <el-table-column label="ID" width="60">
+                  <template #default="s">{{s.row.id}}</template>
+                </el-table-column>
+                <el-table-column label="文档标题" min-width="180">
+                  <template #default="s">{{s.row.title}}</template>
+                </el-table-column>
+                <el-table-column label="类型" width="80">
+                  <template #default="s">{{s.row.file_type||'-'}}</template>
+                </el-table-column>
+                <el-table-column label="大小" width="100">
+                  <template #default="s">{{formatSize(s.row.file_size)}}</template>
+                </el-table-column>
+                <el-table-column label="状态" width="100">
+                  <template #default="s">
+                    <el-tag :type="docStatusType(s.row.status)" size="small">{{docStatusLabel(s.row.status)}}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="上传者" width="100">
+                  <template #default="s">{{s.row.uploader_name||'-'}}</template>
+                </el-table-column>
+                <el-table-column label="分块数" width="80">
+                  <template #default="s">{{s.row.chunk_num||0}}</template>
+                </el-table-column>
+                <el-table-column label="文档权限" width="100">
+                  <template #default="s">
+                    <el-tag v-if="s.row.has_doc_perm" type="warning" size="small" style="cursor:pointer" @click="openDocPermDialog(s.row)">已设置</el-tag>
+                    <el-tag v-else type="info" size="small" style="cursor:pointer" @click="openDocPermDialog(s.row)">继承知识库</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="140">
+                  <template #default="s">
+                    <el-button v-if="s.row.status==='approved'" size="small" type="success" text @click="publishDoc(selectedKb.id,s.row.id)">发布</el-button>
+                    <el-button size="small" type="primary" text @click="openDocPermDialog(s.row)">权限</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-empty v-if="!kbDocsLoading&&kbDocs.length===0" description="暂无文档" :image-size="60" />
+            </el-tab-pane>
+            <el-tab-pane label="权限配置" name="perms">
+              <div style="margin-bottom:12px">
+                <el-button type="primary" size="small" @click="openPermDialog">+ 添加权限</el-button>
+              </div>
+              <el-table :data="kbPerms" stripe max-height="400" v-loading="kbPermsLoading">
+                <el-table-column label="ID" width="60">
+                  <template #default="s">{{s.row.id}}</template>
+                </el-table-column>
+                <el-table-column label="授权对象类型" width="120">
+                  <template #default="s">{{targetTypeLabel(s.row.target_type)}}</template>
+                </el-table-column>
+                <el-table-column label="授权对象" min-width="160">
+                  <template #default="s">{{s.row.target_name||s.row.target_id||'-'}}</template>
+                </el-table-column>
+                <el-table-column label="权限级别" width="100">
+                  <template #default="s">
+                    <el-tag :type="permLevelType(s.row.permission_level)" size="small">{{permLevelLabel(s.row.permission_level)}}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="80">
+                  <template #default="s">
+                    <el-button size="small" type="danger" text @click="removePerm(selectedKb.id,s.row.id)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-empty v-if="!kbPermsLoading&&kbPerms.length===0" description="暂无权限配置" :image-size="60" />
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+      </div>
+
+      <!-- ==================== 审批管理 ==================== -->
+      <div v-if="tab==='approval'">
+        <el-card style="margin-bottom:16px">
+          <template #header><span style="font-weight:600">待审批文档 ({{pendingList.length}}条)</span></template>
+          <el-table :data="pendingList" stripe max-height="360">
+            <el-table-column label="审批ID" width="80">
+              <template #default="s">{{s.row.instance_id}}</template>
+            </el-table-column>
+            <el-table-column label="文档标题" min-width="200">
+              <template #default="s">{{s.row.doc_title}}</template>
+            </el-table-column>
+            <el-table-column label="审批进度" width="140">
+              <template #default="s">
+                <el-progress :percentage="Math.round(s.row.current_step/s.row.total_steps*100)" :format="()=>'步骤 '+s.row.current_step+'/'+s.row.total_steps" />
+              </template>
+            </el-table-column>
+            <el-table-column label="审批步骤" min-width="240">
+              <template #default="s">
+                <div class="step-flow">
+                  <template v-for="(step,idx) in (s.row.steps||[])" :key="idx">
+                    <span class="step-item" :style="{opacity:idx<s.row.current_step?0.5:1,background:idx===s.row.current_step-1?'#409eff':'#ecf5ff',color:idx===s.row.current_step-1?'#fff':'#409eff'}">{{step.label||step.approver_type}}</span>
+                    <span v-if="idx<(s.row.steps||[]).length-1" class="step-arrow">→</span>
+                  </template>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right">
+              <template #default="s">
+                <el-button size="small" type="success" @click="openActionDialog(s.row,true)">批准</el-button>
+                <el-button size="small" type="danger" @click="openActionDialog(s.row,false)">驳回</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="pendingList.length===0" description="暂无待审批文档" :image-size="60" />
+        </el-card>
+
+        <el-card>
+          <template #header>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600">审批链配置 ({{chains.length}}条)</span>
+              <el-button type="primary" size="small" @click="openChainCreate">+ 新建审批链</el-button>
+            </div>
+          </template>
+          <el-table :data="chains" stripe>
+            <el-table-column label="ID" width="60">
+              <template #default="s">{{s.row.id}}</template>
+            </el-table-column>
+            <el-table-column label="审批链名称" min-width="160">
+              <template #default="s"><b>{{s.row.name}}</b></template>
+            </el-table-column>
+            <el-table-column label="审批步骤" min-width="300">
+              <template #default="s">
+                <div class="step-flow">
+                  <template v-for="(step,idx) in (s.row.steps||[])" :key="idx">
+                    <span class="step-item">{{step.label||approverTypeLabel(step.approver_type)}}</span>
+                    <span v-if="idx<(s.row.steps||[]).length-1" class="step-arrow">→</span>
+                  </template>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="80">
+              <template #default="s">
+                <el-tag :type="s.row.is_active?'success':'info'" size="small">{{s.row.is_active?'启用':'停用'}}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right">
+              <template #default="s">
+                <el-button size="small" type="primary" text @click="openChainEdit(s.row)">编辑</el-button>
+                <el-button size="small" type="danger" text @click="doDeleteChain(s.row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="chains.length===0" description="暂无审批链" :image-size="60" />
+        </el-card>
+      </div>
+
+      <!-- ==================== 项目组管理 ==================== -->
+      <div v-if="tab==='groups'">
+        <el-card>
+          <template #header>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600">项目组列表 ({{groups.length}}个)</span>
+              <el-button type="primary" size="small" @click="openGroupCreate">+ 新建项目组</el-button>
+            </div>
+          </template>
+          <el-table :data="groups" stripe>
+            <el-table-column label="ID" width="60">
+              <template #default="s">{{s.row.id}}</template>
+            </el-table-column>
+            <el-table-column label="项目组名称" min-width="160">
+              <template #default="s"><b>{{s.row.name}}</b></template>
+            </el-table-column>
+            <el-table-column label="描述" min-width="220">
+              <template #default="s">{{s.row.description||'-'}}</template>
+            </el-table-column>
+            <el-table-column label="成员数" width="80">
+              <template #default="s">{{s.row.member_count||0}}</template>
+            </el-table-column>
+            <el-table-column label="成员" min-width="260">
+              <template #default="s">
+                <el-tag v-for="m in (s.row.members||[]).slice(0,5)" :key="m.id||m" size="small" style="margin:2px">{{m.full_name||m.username||m}}</el-tag>
+                <el-tag v-if="(s.row.members||[]).length>5" size="small" type="info" style="margin:2px">+{{s.row.members.length-5}}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200" fixed="right">
+              <template #default="s">
+                <el-button size="small" type="primary" text @click="openGroupEdit(s.row)">编辑</el-button>
+                <el-button size="small" type="danger" text @click="doDeleteGroup(s.row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="groups.length===0" description="暂无项目组" :image-size="60" />
+        </el-card>
+      </div>
+
+      <!-- ==================== 钉钉同步 ==================== -->
+      <div v-if="tab==='dingtalk'">
+        <el-card>
+          <template #header><span style="font-weight:600">钉钉组织架构同步</span></template>
+          <el-alert title="同步将从钉钉获取完整的组织架构（部门+人员），支持用户多部门归属" type="info" show-icon :closable="false" style="margin-bottom:24px" />
+          <el-form label-width="120px" style="max-width:560px">
+            <el-form-item label="AppID">
+              <el-input v-model="dingtalkConfig.appid" placeholder="请输入钉钉 AppID" />
+            </el-form-item>
+            <el-form-item label="AppSecret">
+              <el-input type="password" v-model="dingtalkConfig.appsecret" show-password placeholder="请输入钉钉 AppSecret" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="saveDingtalk">保存配置</el-button>
+              <el-button @click="testDingtalk" :loading="loading">测试连接</el-button>
+              <el-button type="success" @click="syncDingtalk" :loading="loading">立即同步</el-button>
+            </el-form-item>
+          </el-form>
+          <div v-if="dingtalkMsg" style="margin-top:16px;padding:12px 16px;border-radius:6px;font-size:13px"
+            :style="{background:dingtalkMsgType==='success'?'#f0f9eb':dingtalkMsgType==='error'?'#fef0f0':'#f4f4f5',color:dingtalkMsgType==='success'?'#67c23a':dingtalkMsgType==='error'?'#f56c6c':'#909399'}">
+            {{dingtalkMsg}}
+          </div>
+        </el-card>
+      </div>
+
+      <!-- ==================== RAGFlow对接 ==================== -->
+      <div v-if="tab==='ragflow'">
+        <el-card style="margin-bottom:16px">
+          <template #header><span style="font-weight:600">RAGFlow引擎对接</span></template>
+          <el-form label-width="120px" style="max-width:560px">
+            <el-form-item label="RAGFlow地址">
+              <el-input v-model="ragflowConfig.url" placeholder="http://localhost:9380" />
+            </el-form-item>
+            <el-form-item label="API Key">
+              <el-input type="password" v-model="ragflowConfig.apikey" show-password placeholder="请输入RAGFlow API Key" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="saveRagflowConfig">保存配置</el-button>
+              <el-button @click="testRagflow" :loading="loading">测试连接</el-button>
+            </el-form-item>
+          </el-form>
+          <div v-if="ragflowMsg" style="margin-top:16px;padding:12px 16px;border-radius:6px;font-size:13px"
+            :style="{background:ragflowMsgType==='success'?'#f0f9eb':ragflowMsgType==='error'?'#fef0f0':'#f4f4f5',color:ragflowMsgType==='success'?'#67c23a':ragflowMsgType==='error'?'#f56c6c':'#909399'}">
+            {{ragflowMsg}}
+          </div>
+        </el-card>
+        <el-card v-if="ragflowConnected">
+          <template #header>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600">RAGFlow数据集 ({{ragflowDatasets.length}}个)</span>
+              <el-button type="primary" size="small" @click="loadRagflowDatasets">刷新</el-button>
+            </div>
+          </template>
+          <el-table :data="ragflowDatasets" stripe max-height="400">
+            <el-table-column label="ID" width="120">
+              <template #default="s">{{(s.row.id||'').substring(0,12)}}...</template>
+            </el-table-column>
+            <el-table-column label="名称" min-width="160">
+              <template #default="s">{{s.row.name}}</template>
+            </el-table-column>
+            <el-table-column label="文档数" width="80">
+              <template #default="s">{{s.row.document_count||0}}</template>
+            </el-table-column>
+            <el-table-column label="分块数" width="80">
+              <template #default="s">{{s.row.chunk_count||0}}</template>
+            </el-table-column>
+            <el-table-column label="嵌入模型" min-width="200">
+              <template #default="s">{{s.row.embedding_model||'-'}}</template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="ragflowDatasets.length===0" description="暂无数据集" :image-size="50" />
+        </el-card>
+      </div>
+
+      <!-- ==================== 智能体对话 ==================== -->
+      <div v-if="tab==='chat'">
+        <el-row :gutter="16">
+          <el-col :span="16">
+            <el-card style="min-height:600px">
+              <template #header>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-weight:600">智能体对话测试</span>
+                  <el-tag v-if="chatUser" type="success" size="small">模拟用户: {{chatUser.full_name||chatUser.username}}</el-tag>
+                </div>
+              </template>
+              <div style="height:440px;overflow-y:auto;border:1px solid #e4e7ed;border-radius:6px;padding:12px;background:#fafafa;margin-bottom:12px" ref="chatContainer">
+                <div v-if="chatMessages.length===0" style="text-align:center;color:#c0c4cc;padding-top:160px">
+                  <div style="font-size:40px;margin-bottom:12px">💬</div>
+                  <div>选择模拟用户后开始对话测试</div>
+                </div>
+                <div v-for="(msg,idx) in chatMessages" :key="idx" :style="{marginBottom:'12px',textAlign:msg.role==='user'?'right':'left'}">
+                  <div :style="{display:'inline-block',maxWidth:'80%',padding:'8px 14px',borderRadius:'8px',fontSize:'14px',lineHeight:'1.6',background:msg.role==='user'?'#409eff':'#fff',color:msg.role==='user'?'#fff':'#303133',border:msg.role==='user'?'none':'1px solid #e4e7ed'}">
+                    <div v-html="msg.content"></div>
+                    <div v-if="msg.kbs" style="margin-top:6px;font-size:12px;opacity:0.7">📚 授权知识库: {{msg.kbs.join(', ')}}</div>
+                  </div>
+                </div>
+                <div v-if="chatLoading" style="text-align:left;margin-bottom:12px">
+                  <div style="display:inline-block;padding:8px 14px;border-radius:8px;background:#fff;border:1px solid #e4e7ed;font-size:14px;color:#909399">🤔 思考中...</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <el-input v-model="chatQuestion" placeholder="输入问题测试智能体对话..." @keyup.enter="sendChat" :disabled="!chatUser||chatLoading" style="flex:1" />
+                <el-button type="primary" @click="sendChat" :loading="chatLoading" :disabled="!chatUser||!chatQuestion">发送</el-button>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="8">
+            <el-card style="min-height:600px">
+              <template #header><span style="font-weight:600">对话设置</span></template>
+              <el-form label-width="80px" size="small">
+                <el-form-item label="模拟用户">
+                  <select v-model="chatUserId" @change="onChatUserChange" style="width:100%;height:28px;padding:0 8px;border:1px solid #dcdfe6;border-radius:4px;font-size:13px;cursor:pointer;background:#fff">
+                    <option :value="null" disabled>请选择模拟用户</option>
+                    <option v-for="u in users" :key="u.id" :value="u.id">{{u.full_name||u.username}} ({{u.dingtalk_userid||'无钉钉ID'}})</option>
+                  </select>
+                </el-form-item>
+                <el-form-item label="限定知识库">
+                  <el-select v-model="chatKbIds" multiple placeholder="不选则查全部" style="width:100%" size="small">
+                    <el-option v-for="kb in kbList" :key="kb.id" :label="kb.name" :value="kb.id" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-button size="small" @click="chatMessages=[];chatQuestion=''">清空对话</el-button>
+                </el-form-item>
+              </el-form>
+              <el-divider />
+              <div v-if="chatUser" style="font-size:13px;color:#606266">
+                <div style="font-weight:600;margin-bottom:8px">用户权限概览</div>
+                <div>用户: <b>{{chatUser.full_name||chatUser.username}}</b></div>
+                <div>角色: <el-tag :type="chatUser.role==='admin'?'danger':'info'" size="small">{{chatUser.role==='admin'?'管理员':'用户'}}</el-tag></div>
+                <div style="margin-top:8px">可访问知识库:</div>
+                <div v-for="kb in chatAccessibleKbs" :key="kb.id" style="padding:4px 0;border-bottom:1px solid #f0f0f0">
+                  <span>{{kb.name}}</span>
+                  <el-tag size="small" :type="kb.ragflow_dataset_id?'success':'info'" style="margin-left:4px">{{kb.ragflow_dataset_id?'已对接':'未对接'}}</el-tag>
+                </div>
+                <div v-if="chatAccessibleKbs.length===0" style="color:#c0c4cc">无可访问知识库</div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+      </div>
+
+    </el-main>
+  </el-container>
+</el-container>
+
+<!-- ==================== 注册弹窗 ==================== -->
+<el-dialog v-model="showRegister" title="注册新账号" width="440px" :close-on-click-modal="false">
+  <el-form label-width="80px">
+    <el-form-item label="用户名"><el-input v-model="regForm.username" placeholder="请输入用户名" /></el-form-item>
+    <el-form-item label="密码"><el-input type="password" v-model="regForm.password" placeholder="请输入密码" show-password /></el-form-item>
+    <el-form-item label="姓名"><el-input v-model="regForm.full_name" placeholder="请输入姓名" /></el-form-item>
+    <el-form-item label="邮箱"><el-input v-model="regForm.email" placeholder="请输入邮箱" /></el-form-item>
+  </el-form>
+  <div v-if="regError" style="color:#f56c6c;font-size:13px;margin-bottom:12px">{{regError}}</div>
+  <template #footer>
+    <el-button @click="showRegister=false">取消</el-button>
+    <el-button type="primary" @click="doRegister" :loading="loading">注册</el-button>
+  </template>
+</el-dialog>
+
+<!-- ==================== 知识库新建/编辑弹窗 ==================== -->
+<el-dialog v-model="showKbDialog" :title="kbEditMode?'编辑知识库':'新建知识库'" width="500px">
+  <el-form label-width="90px">
+    <el-form-item label="名称"><el-input v-model="kbForm.name" placeholder="请输入知识库名称" /></el-form-item>
+    <el-form-item label="描述"><el-input type="textarea" v-model="kbForm.description" :rows="3" placeholder="请输入描述" /></el-form-item>
+    <el-form-item label="公开">
+      <el-switch v-model="kbForm.is_public" active-text="公开" inactive-text="私有" />
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="showKbDialog=false">取消</el-button>
+    <el-button type="primary" @click="saveKb" :loading="loading">保存</el-button>
+  </template>
+</el-dialog>
+
+<!-- ==================== 权限添加弹窗 ==================== -->
+<el-dialog v-model="showPermDialog" title="添加权限" width="500px" destroy-on-close>
+  <el-form label-width="110px">
+    <el-form-item label="授权对象">
+      <select v-model="permForm.target_type" @change="onPermTargetTypeChange" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;font-size:14px;cursor:pointer;background:#fff">
+        <option value="">不设置权限</option>
+        <option value="company">全公司</option>
+        <option value="department">部门</option>
+        <option value="individual">个人</option>
+        <option value="project_group">项目组</option>
+      </select>
+    </el-form-item>
+    <el-form-item label="选择对象">
+      <div v-if="permForm.target_type==='company'" style="width:100%">
+        <input class="native-select" disabled placeholder="全公司无需选择具体对象" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;background:#f5f7fa;color:#c0c4cc;font-size:14px" />
+      </div>
+      <div v-else-if="permForm.target_type==='department'" style="width:100%">
+        <select v-model="permForm.target_id" class="native-select" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;font-size:14px;cursor:pointer;background:#fff">
+          <option :value="null" disabled>请选择部门</option>
+          <option v-for="d in flatDepts" :key="d.id" :value="d.id">{{d.name}}</option>
+        </select>
+      </div>
+      <div v-else-if="permForm.target_type==='individual'" style="width:100%">
+        <select v-model="permForm.target_id" class="native-select" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;font-size:14px;cursor:pointer;background:#fff">
+          <option :value="null" disabled>请选择员工</option>
+          <option v-for="u in users" :key="u.id" :value="u.id">{{u.full_name||u.username}}</option>
+        </select>
+      </div>
+      <div v-else-if="permForm.target_type==='project_group'" style="width:100%">
+        <select v-model="permForm.target_id" class="native-select" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;font-size:14px;cursor:pointer;background:#fff">
+          <option :value="null" disabled>请选择项目组</option>
+          <option v-for="g in groups" :key="g.id" :value="g.id">{{g.name}}</option>
+        </select>
+      </div>
+      <div v-else style="width:100%">
+        <select v-model="permForm.target_id" class="native-select" disabled style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;background:#f5f7fa;color:#c0c4cc;font-size:14px">
+          <option :value="null">请先选择授权对象类型</option>
+        </select>
+      </div>
+    </el-form-item>
+    <el-form-item label="权限级别">
+      <el-select v-model="permForm.permission_level" style="width:100%">
+        <el-option label="查看" value="view" />
+        <el-option label="下载" value="download" />
+        <el-option label="上传" value="upload" />
+        <el-option label="管理" value="manage" />
+      </el-select>
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="showPermDialog=false">取消</el-button>
+    <el-button type="primary" @click="addPermission" :loading="loading">确认添加</el-button>
+  </template>
+</el-dialog>
+
+<!-- ==================== 上传文档弹窗 ==================== -->
+<el-dialog v-model="showUploadDialog" title="上传文档" width="620px" :close-on-click-modal="false" destroy-on-close>
+  <el-form label-width="110px">
+    <el-form-item label="目标知识库" required>
+      <el-select v-model="uploadForm.kb_id" style="width:100%" placeholder="请选择目标知识库" filterable>
+        <el-option v-for="kb in kbList" :key="kb.id" :label="kb.name" :value="kb.id" />
+      </el-select>
+    </el-form-item>
+    <el-form-item label="选择文件" required>
+      <el-upload
+        :auto-upload="false"
+        :on-change="onUploadFileChange"
+        :on-remove="onUploadFileRemove"
+        multiple
+        accept=".pdf,.doc,.docx,.txt,.md,.xlsx,.pptx,.csv"
+        drag
+      >
+        <div style="padding:20px 0">
+          <div style="font-size:32px;margin-bottom:8px">📂</div>
+          <div style="font-size:14px;color:#606266">将文件拖到此处，或<span style="color:#409eff">点击上传</span></div>
+          <div style="font-size:12px;color:#909399;margin-top:4px">支持 PDF、Word、TXT、Markdown、Excel、PPT、CSV 格式，可批量选择</div>
+        </div>
+      </el-upload>
+    </el-form-item>
+    <el-divider content-position="left">权限设置（可选）</el-divider>
+    <el-form-item label="授权对象">
+      <select v-model="uploadForm.target_type" @change="onUploadTargetTypeChange" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;font-size:14px;cursor:pointer;background:#fff">
+        <option value="">不设置权限</option>
+        <option value="company">全公司</option>
+        <option value="department">部门</option>
+        <option value="individual">个人</option>
+        <option value="project_group">项目组</option>
+      </select>
+    </el-form-item>
+    <el-form-item label="选择对象">
+      <div v-if="uploadForm.target_type==='company'" style="width:100%">
+        <input class="native-select" disabled placeholder="全公司无需选择具体对象" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;background:#f5f7fa;color:#c0c4cc;font-size:14px" />
+      </div>
+      <div v-else-if="uploadForm.target_type==='department'" style="width:100%">
+        <select v-model="uploadForm.target_id" class="native-select" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;font-size:14px;cursor:pointer;background:#fff">
+          <option :value="null" disabled>请选择部门</option>
+          <option v-for="d in flatDepts" :key="d.id" :value="d.id">{{d.name}}</option>
+        </select>
+      </div>
+      <div v-else-if="uploadForm.target_type==='individual'" style="width:100%">
+        <select v-model="uploadForm.target_id" class="native-select" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;font-size:14px;cursor:pointer;background:#fff">
+          <option :value="null" disabled>请选择员工</option>
+          <option v-for="u in users" :key="u.id" :value="u.id">{{u.full_name||u.username}}</option>
+        </select>
+      </div>
+      <div v-else-if="uploadForm.target_type==='project_group'" style="width:100%">
+        <select v-model="uploadForm.target_id" class="native-select" style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;font-size:14px;cursor:pointer;background:#fff">
+          <option :value="null" disabled>请选择项目组</option>
+          <option v-for="g in groups" :key="g.id" :value="g.id">{{g.name}}</option>
+        </select>
+      </div>
+      <div v-else style="width:100%">
+        <select v-model="uploadForm.target_id" class="native-select" disabled style="width:100%;height:32px;padding:0 12px;border:1px solid #dcdfe6;border-radius:4px;background:#f5f7fa;color:#c0c4cc;font-size:14px">
+          <option :value="null">请先选择授权对象类型</option>
+        </select>
+      </div>
+    </el-form-item>
+    <el-form-item label="权限级别">
+      <el-select v-model="uploadForm.permission_level" style="width:100%" :disabled="!uploadForm.target_type">
+        <el-option label="查看" value="view" />
+        <el-option label="下载" value="download" />
+        <el-option label="上传" value="upload" />
+        <el-option label="管理" value="manage" />
+      </el-select>
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="showUploadDialog=false">取消</el-button>
+    <el-button type="primary" @click="doUploadDocs" :loading="loading">提交上传</el-button>
+  </template>
+</el-dialog>
+
+<!-- ==================== 审批操作弹窗 ==================== -->
+<el-dialog v-model="showActionDialog" :title="actionApproved?'批准文档':'驳回文档'" width="500px">
+  <div style="margin-bottom:16px">
+    <span style="color:#909399">文档：</span><b>{{actionDocTitle}}</b>
+  </div>
+  <el-form label-width="80px">
+    <el-form-item label="审批意见">
+      <el-input type="textarea" v-model="actionComment" :rows="3" placeholder="请输入审批意见（可选）" />
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="showActionDialog=false">取消</el-button>
+    <el-button v-if="!actionApproved" type="danger" @click="doApprovalAction" :loading="loading">确认驳回</el-button>
+    <el-button v-else type="success" @click="doApprovalAction" :loading="loading">确认批准</el-button>
+  </template>
+</el-dialog>
+
+<!-- ==================== 审批链新建/编辑弹窗 ==================== -->
+<el-dialog v-model="showChainDialog" :title="chainEditMode?'编辑审批链':'新建审批链'" width="600px">
+  <el-form label-width="100px">
+    <el-form-item label="审批链名称">
+      <el-input v-model="chainForm.name" placeholder="请输入审批链名称" />
+    </el-form-item>
+    <el-form-item label="审批步骤">
+      <div style="width:100%">
+        <div v-for="(step,idx) in chainForm.steps" :key="idx" style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+          <span style="color:#909399;font-size:13px;min-width:50px">步骤{{idx+1}}</span>
+          <el-select v-model="step.approver_type" style="width:160px" placeholder="审批人类型">
+            <el-option label="部门管理员" value="department_admin" />
+            <el-option label="知识库管理员" value="kb_admin" />
+            <el-option label="系统管理员" value="admin" />
+            <el-option label="指定用户" value="specific_user" />
+          </el-select>
+          <el-input v-model="step.label" placeholder="步骤说明" style="flex:1" />
+          <el-button type="danger" size="small" @click="chainForm.steps.splice(idx,1)" :disabled="chainForm.steps.length<=1">删除</el-button>
+        </div>
+        <el-button type="primary" size="small" @click="chainForm.steps.push({approver_type:'',label:''})">+ 添加步骤</el-button>
+      </div>
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="showChainDialog=false">取消</el-button>
+    <el-button type="primary" @click="saveChain" :loading="loading">保存</el-button>
+  </template>
+</el-dialog>
+
+<!-- ==================== 项目组新建/编辑弹窗 ==================== -->
+<el-dialog v-model="showGroupDialog" :title="groupEditMode?'编辑项目组':'新建项目组'" width="560px">
+  <el-form label-width="90px">
+    <el-form-item label="项目组名称">
+      <el-input v-model="groupForm.name" placeholder="请输入项目组名称" />
+    </el-form-item>
+    <el-form-item label="描述">
+      <el-input type="textarea" v-model="groupForm.description" :rows="3" placeholder="请输入描述" />
+    </el-form-item>
+    <el-form-item label="成员">
+      <el-select v-model="groupForm.member_ids" multiple filterable placeholder="选择成员" style="width:100%">
+        <el-option v-for="u in users" :key="u.id" :label="u.full_name||u.username" :value="u.id" />
+      </el-select>
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="showGroupDialog=false">取消</el-button>
+    <el-button type="primary" @click="saveGroup" :loading="loading">保存</el-button>
+  </el-dialog>
+
+<!-- ==================== 文档权限弹窗 ==================== -->
+<el-dialog v-model="showDocPermDialog" :title="'文档权限 — '+docPermDocTitle" width="620px" destroy-on-close>
+  <el-alert type="info" show-icon :closable="false" style="margin-bottom:16px">
+    <template #title>
+      <span>文档级权限优先于知识库级权限。若未设置文档级权限，则继承知识库权限；若设置了文档级权限，则仅授权对象可访问此文档。</span>
+    </template>
+  </el-alert>
+  <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-weight:600;font-size:14px">文档权限列表</span>
+    <el-button type="primary" size="small" @click="showDocPermAddRow=true">+ 添加文档权限</el-button>
+  </div>
+  <div v-if="showDocPermAddRow" style="margin-bottom:12px;padding:12px;border:1px solid #e4e7ed;border-radius:6px;background:#fafafa">
+    <el-form label-width="90px" size="small">
+      <el-form-item label="授权对象">
+        <select v-model="docPermForm.target_type" @change="docPermForm.target_id=null" style="width:100%;height:28px;padding:0 8px;border:1px solid #dcdfe6;border-radius:4px;font-size:13px;cursor:pointer;background:#fff">
+          <option value="company">全公司</option>
+          <option value="department">部门</option>
+          <option value="individual">个人</option>
+          <option value="project_group">项目组</option>
+        </select>
+      </el-form-item>
+      <el-form-item label="选择对象" v-if="docPermForm.target_type!=='company'">
+        <select v-model="docPermForm.target_id" style="width:100%;height:28px;padding:0 8px;border:1px solid #dcdfe6;border-radius:4px;font-size:13px;cursor:pointer;background:#fff">
+          <option :value="null" disabled>请选择</option>
+          <option v-if="docPermForm.target_type==='department'" v-for="d in flatDepts" :key="d.id" :value="d.id">{{d.name}}</option>
+          <option v-if="docPermForm.target_type==='individual'" v-for="u in users" :key="u.id" :value="u.id">{{u.full_name||u.username}}</option>
+          <option v-if="docPermForm.target_type==='project_group'" v-for="g in groups" :key="g.id" :value="g.id">{{g.name}}</option>
+        </select>
+      </el-form-item>
+      <el-form-item label="权限级别">
+        <el-select v-model="docPermForm.permission_level" style="width:100%" size="small">
+          <el-option label="查看" value="view" />
+          <el-option label="下载" value="download" />
+          <el-option label="上传" value="upload" />
+          <el-option label="管理" value="manage" />
+        </el-select>
+      </el-form-item>
+      <div style="text-align:right">
+        <el-button size="small" @click="showDocPermAddRow=false">取消</el-button>
+        <el-button type="primary" size="small" @click="addDocPerm" :loading="loading">确认</el-button>
+      </div>
+    </el-form>
+  </div>
+  <el-table :data="docPermList" stripe max-height="300" v-loading="docPermLoading">
+    <el-table-column label="授权对象类型" width="110">
+      <template #default="s">{{targetTypeLabel(s.row.target_type)}}</template>
+    </el-table-column>
+    <el-table-column label="授权对象" min-width="160">
+      <template #default="s">{{s.row.target_name||s.row.target_id||'-'}}</template>
+    </el-table-column>
+    <el-table-column label="权限级别" width="100">
+      <template #default="s">
+        <el-tag :type="permLevelType(s.row.permission_level)" size="small">{{permLevelLabel(s.row.permission_level)}}</el-tag>
+      </template>
+    </el-table-column>
+    <el-table-column label="操作" width="80">
+      <template #default="s">
+        <el-button size="small" type="danger" text @click="removeDocPerm(s.row.id)">删除</el-button>
+      </template>
+    </el-table-column>
+  </el-table>
+  <el-empty v-if="!docPermLoading&&docPermList.length===0" description="暂无文档级权限，继承知识库权限" :image-size="50" />
+</el-dialog>
+
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+const ElMsg = ElementPlus.ElMessage;
+const ElMsgBox = ElementPlus.ElMessageBox;
+
+createApp({
+  setup() {
+    const apiBase = 'http://localhost:8088/api';
+
+    const currentUser = ref(null);
+    const token = ref(localStorage.getItem('perm_token') || '');
+    const loading = ref(false);
+    const tab = ref('dashboard');
+
+    const loginForm = ref({ username: '', password: '' });
+    const loginError = ref('');
+    const showRegister = ref(false);
+    const regForm = ref({ username: '', password: '', full_name: '', email: '' });
+    const regError = ref('');
+
+    const users = ref([]);
+    const userSearch = ref('');
+    const orgSubTab = ref('byDept');
+
+    const deptTree = ref([]);
+    const deptMembers = ref([]);
+    const selectedDeptId = ref(null);
+    const selectedDeptName = ref('');
+
+    const kbList = ref([]);
+    const selectedKb = ref(null);
+    const kbDetailTab = ref('docs');
+    const kbDocs = ref([]);
+    const kbDocsLoading = ref(false);
+    const kbPerms = ref([]);
+    const kbPermsLoading = ref(false);
+    const showKbDialog = ref(false);
+    const kbForm = ref({ name: '', description: '', is_public: false });
+    const kbEditMode = ref(false);
+    const kbEditId = ref(null);
+    const showPermDialog = ref(false);
+    const permForm = ref({ target_type: 'company', target_id: null, permission_level: 'view' });
+
+    const showUploadDialog = ref(false);
+    const uploadForm = ref({ kb_id: null, target_type: '', target_id: null, permission_level: 'view' });
+    const uploadFileList = ref([]);
+
+    const pendingList = ref([]);
+    const chains = ref([]);
+    const showChainDialog = ref(false);
+    const chainForm = ref({ name: '', steps: [{ approver_type: '', label: '' }] });
+    const chainEditMode = ref(false);
+    const chainEditId = ref(null);
+
+    const showActionDialog = ref(false);
+    const actionInstanceId = ref(null);
+    const actionApproved = ref(true);
+    const actionComment = ref('');
+    const actionDocTitle = ref('');
+
+    const groups = ref([]);
+    const showGroupDialog = ref(false);
+    const groupForm = ref({ name: '', description: '', member_ids: [] });
+    const groupEditMode = ref(false);
+    const groupEditId = ref(null);
+
+    const showDocPermDialog = ref(false);
+    const docPermDocTitle = ref('');
+    const docPermDocId = ref(null);
+    const docPermList = ref([]);
+    const docPermLoading = ref(false);
+    const showDocPermAddRow = ref(false);
+    const docPermForm = ref({ target_type: 'company', target_id: null, permission_level: 'view' });
+
+    const dingtalkConfig = ref({ appid: '', appsecret: '' });
+    const dingtalkMsg = ref('');
+    const dingtalkMsgType = ref('info');
+
+    const ragflowConfig = ref({ url: 'http://localhost:9380', apikey: '' });
+    const ragflowMsg = ref('');
+    const ragflowMsgType = ref('info');
+    const ragflowConnected = ref(false);
+    const ragflowDatasets = ref([]);
+
+    const chatUserId = ref(null);
+    const chatUser = ref(null);
+    const chatKbIds = ref([]);
+    const chatQuestion = ref('');
+    const chatMessages = ref([]);
+    const chatLoading = ref(false);
+
+    const stats = ref({ users: 0, depts: 0, kbs: 0, groups: 0, pending: 0, chains: 0 });
+
+    const filteredUsers = computed(() => {
+      if (!userSearch.value) return users.value;
+      const s = userSearch.value.toLowerCase();
+      return users.value.filter(u =>
+        (u.username || '').toLowerCase().includes(s) ||
+        (u.full_name || '').toLowerCase().includes(s)
+      );
+    });
+
+    const flatDepts = computed(() => {
+      const result = [];
+      function walk(nodes) {
+        for (const n of nodes) {
+          result.push({ id: n.id, name: n.name });
+          if (n.children && n.children.length) walk(n.children);
+        }
+      }
+      walk(deptTree.value);
+      return result;
+    });
+
+    const uploadTargetOptions = computed(() => {
+      const t = uploadForm.value.target_type;
+      if (t === 'department') return flatDepts.value.map(d => ({ label: d.name, value: d.id }));
+      if (t === 'individual') return users.value.map(u => ({ label: u.full_name || u.username, value: u.id }));
+      if (t === 'project_group') return groups.value.map(g => ({ label: g.name, value: g.id }));
+      return [];
+    });
+
+    const uploadTargetPlaceholder = computed(() => {
+      const t = uploadForm.value.target_type;
+      if (t === 'company') return '全公司无需选择具体对象';
+      if (t === 'department') return '请选择部门';
+      if (t === 'individual') return '请选择员工';
+      if (t === 'project_group') return '请选择项目组';
+      return '请先选择授权对象类型';
+    });
+
+    const permTargetOptions = computed(() => {
+      const t = permForm.value.target_type;
+      if (t === 'department') return flatDepts.value.map(d => ({ label: d.name, value: d.id }));
+      if (t === 'individual') return users.value.map(u => ({ label: u.full_name || u.username, value: u.id }));
+      if (t === 'project_group') return groups.value.map(g => ({ label: g.name, value: g.id }));
+      return [];
+    });
+
+    const permTargetPlaceholder = computed(() => {
+      const t = permForm.value.target_type;
+      if (t === 'company') return '全公司无需选择具体对象';
+      if (t === 'department') return '请选择部门';
+      if (t === 'individual') return '请选择员工';
+      if (t === 'project_group') return '请选择项目组';
+      return '请先选择授权对象类型';
+    });
+
+    const chatAccessibleKbs = computed(() => {
+      if (!chatUser.value) return [];
+      return kbList.value.filter(kb => {
+        if (chatUser.value.role === 'admin') return true;
+        return (kb.permissions || []).some(p =>
+          p.type === 'company' ||
+          (p.type === 'individual') ||
+          (p.type === 'department') ||
+          (p.type === 'project_group')
+        );
+      });
+    });
+
+    function onUploadTargetTypeChange() {
+      uploadForm.value.target_id = null;
+    }
+
+    function onPermTargetTypeChange() {
+      permForm.value.target_id = null;
+    }
+
+    async function api(path, method = 'GET', body = null, isForm = false) {
+      try {
+        const opts = { method, headers: {} };
+        if (token.value) opts.headers['Authorization'] = 'Bearer ' + token.value;
+        if (!isForm && body) {
+          opts.headers['Content-Type'] = 'application/json';
+          opts.body = JSON.stringify(body);
+        } else if (isForm && body) {
+          opts.body = body;
+        }
+        const r = await fetch(apiBase + path, opts);
+        if (r.status === 401) {
+          currentUser.value = null;
+          token.value = '';
+          localStorage.removeItem('perm_token');
+          ElMsg.error('登录已过期，请重新登录');
+          return null;
+        }
+        const d = await r.json();
+        if (!r.ok) {
+          ElMsg.error(d.detail || d.message || '请求失败');
+          return null;
+        }
+        return d;
+      } catch (e) {
+        ElMsg.error('网络错误，无法连接服务器');
+        return null;
+      }
+    }
+
+    async function doLogin() {
+      loginError.value = '';
+      if (!loginForm.value.username || !loginForm.value.password) {
+        loginError.value = '请输入用户名和密码';
+        return;
+      }
+      loading.value = true;
+      try {
+        const form = new URLSearchParams();
+        form.append('username', loginForm.value.username);
+        form.append('password', loginForm.value.password);
+        const r = await fetch(apiBase + '/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form
+        });
+        loading.value = false;
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          loginError.value = d.detail || '用户名或密码错误';
+          return;
+        }
+        const d = await r.json();
+        token.value = d.access_token;
+        localStorage.setItem('perm_token', d.access_token);
+        await loadUser();
+      } catch (e) {
+        loading.value = false;
+        loginError.value = '无法连接到服务器';
+      }
+    }
+
+    async function doRegister() {
+      regError.value = '';
+      if (!regForm.value.username || !regForm.value.password) {
+        regError.value = '用户名和密码不能为空';
+        return;
+      }
+      loading.value = true;
+      const r = await api('/auth/register', 'POST', regForm.value);
+      loading.value = false;
+      if (r) {
+        ElMsg.success('注册成功，请登录');
+        showRegister.value = false;
+        regForm.value = { username: '', password: '', full_name: '', email: '' };
+      }
+    }
+
+    async function loadUser() {
+      const r = await api('/auth/me');
+      if (r) {
+        currentUser.value = r;
+        loadAll();
+      }
+    }
+
+    function logout() {
+      currentUser.value = null;
+      token.value = '';
+      localStorage.removeItem('perm_token');
+    }
+
+    function handleHeaderCmd(cmd) {
+      if (cmd === 'logout') logout();
+    }
+
+    function onMenuSelect(index) {
+      tab.value = index;
+      if (index === 'orgPeople') { loadUsers(); loadDeptTree(); }
+      if (index === 'knowledge') loadKbList();
+      if (index === 'approval') { loadPending(); loadChains(); }
+      if (index === 'groups') loadGroups();
+      if (index === 'ragflow') { loadRagflowConfig(); testRagflowSilent(); }
+      if (index === 'chat') { loadUsers(); loadKbList(); }
+    }
+
+    async function loadAll() {
+      await Promise.all([loadUsers(), loadDeptTree(), loadKbList(), loadPending(), loadChains(), loadGroups()]);
+      updateStats();
+    }
+
+    async function loadUsers() {
+      const r = await api('/users');
+      if (r) users.value = Array.isArray(r) ? r : [];
+    }
+
+    async function loadDeptTree() {
+      const r = await api('/departments/tree');
+      if (r) {
+        deptTree.value = Array.isArray(r) ? r : [];
+      }
+    }
+
+    async function onDeptNodeClick(data) {
+      selectedDeptId.value = data.id;
+      selectedDeptName.value = data.name;
+      orgSubTab.value = 'byDept';
+      const r = await api('/departments/' + data.id + '/members');
+      deptMembers.value = r ? (Array.isArray(r) ? r : []) : [];
+    }
+
+    async function loadKbList() {
+      const r = await api('/knowledge/bases');
+      if (r) kbList.value = Array.isArray(r) ? r : [];
+    }
+
+    function onKbRowClick(row) {
+      if (selectedKb.value && selectedKb.value.id === row.id) {
+        selectedKb.value = null;
+        return;
+      }
+      selectedKb.value = row;
+      kbDetailTab.value = 'docs';
+      loadKbDocs(row.id);
+      loadKbPerms(row.id);
+    }
+
+    async function loadKbDocs(kbId) {
+      kbDocsLoading.value = true;
+      const r = await api('/knowledge/bases/' + kbId + '/documents');
+      kbDocsLoading.value = false;
+      kbDocs.value = r ? (Array.isArray(r) ? r : []) : [];
+    }
+
+    async function loadKbPerms(kbId) {
+      kbPermsLoading.value = true;
+      const r = await api('/knowledge/bases/' + kbId + '/permissions');
+      kbPermsLoading.value = false;
+      kbPerms.value = r ? (Array.isArray(r) ? r : []) : [];
+    }
+
+    function openKbCreate() {
+      kbEditMode.value = false;
+      kbEditId.value = null;
+      kbForm.value = { name: '', description: '', is_public: false };
+      showKbDialog.value = true;
+    }
+
+    function openKbEdit(row) {
+      kbEditMode.value = true;
+      kbEditId.value = row.id;
+      kbForm.value = { name: row.name, description: row.description || '', is_public: row.is_public };
+      showKbDialog.value = true;
+    }
+
+    async function saveKb() {
+      if (!kbForm.value.name) { ElMsg.warning('请输入知识库名称'); return; }
+      loading.value = true;
+      let r;
+      if (kbEditMode.value) {
+        r = await api('/knowledge/bases/' + kbEditId.value, 'PUT', kbForm.value);
+      } else {
+        r = await api('/knowledge/bases', 'POST', kbForm.value);
+      }
+      loading.value = false;
+      if (r !== null) {
+        ElMsg.success(kbEditMode.value ? '更新成功' : '创建成功');
+        showKbDialog.value = false;
+        await loadKbList();
+        if (selectedKb.value && kbEditMode.value && selectedKb.value.id === kbEditId.value) {
+          selectedKb.value = kbList.value.find(k => k.id === kbEditId.value) || null;
+        }
+      }
+    }
+
+    async function doDeleteKb(row) {
+      try {
+        await ElMsgBox.confirm('确定删除知识库「' + row.name + '」？此操作不可恢复。', '删除确认', { type: 'warning' });
+      } catch { return; }
+      const r = await api('/knowledge/bases/' + row.id, 'DELETE');
+      if (r !== null) {
+        ElMsg.success('删除成功');
+        if (selectedKb.value && selectedKb.value.id === row.id) selectedKb.value = null;
+        await loadKbList();
+      }
+    }
+
+    async function openPermDialog() {
+      permForm.value = { target_type: 'company', target_id: null, permission_level: 'view' };
+      await Promise.all([loadUsers(), loadDeptTree(), loadGroups()]);
+      showPermDialog.value = true;
+    }
+
+    async function addPermission() {
+      if (permForm.value.target_type !== 'company' && !permForm.value.target_id) {
+        ElMsg.warning('请选择授权对象');
+        return;
+      }
+      loading.value = true;
+      const r = await api('/knowledge/bases/' + selectedKb.value.id + '/permissions', 'POST', permForm.value);
+      loading.value = false;
+      if (r !== null) {
+        ElMsg.success('权限添加成功');
+        showPermDialog.value = false;
+        await loadKbPerms(selectedKb.value.id);
+        await loadKbList();
+      }
+    }
+
+    async function removePerm(kbId, permId) {
+      try {
+        await ElMsgBox.confirm('确定删除此权限？', '删除确认', { type: 'warning' });
+      } catch { return; }
+      const r = await api('/knowledge/bases/' + kbId + '/permissions/' + permId, 'DELETE');
+      if (r !== null) {
+        ElMsg.success('权限已删除');
+        await loadKbPerms(kbId);
+        await loadKbList();
+      }
+    }
+
+    async function openUploadDialog() {
+      uploadForm.value = { kb_id: null, target_type: '', target_id: null, permission_level: 'view' };
+      uploadFileList.value = [];
+      await Promise.all([loadUsers(), loadDeptTree(), loadGroups()]);
+      showUploadDialog.value = true;
+    }
+
+    function onUploadFileChange(file, fileList) {
+      uploadFileList.value = fileList;
+    }
+
+    function onUploadFileRemove(file, fileList) {
+      uploadFileList.value = fileList;
+    }
+
+    async function doUploadDocs() {
+      if (!uploadForm.value.kb_id) { ElMsg.warning('请选择目标知识库'); return; }
+      if (!uploadFileList.value.length) { ElMsg.warning('请选择要上传的文件'); return; }
+      loading.value = true;
+      let successCount = 0;
+      let failCount = 0;
+      for (const file of uploadFileList.value) {
+        const fd = new FormData();
+        fd.append('file', file.raw);
+        try {
+          const r = await fetch(apiBase + '/knowledge/bases/' + uploadForm.value.kb_id + '/upload', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token.value },
+            body: fd
+          });
+          if (r.ok) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } catch (e) {
+          failCount++;
+        }
+      }
+      if (uploadForm.value.target_type && successCount > 0) {
+        await api('/knowledge/bases/' + uploadForm.value.kb_id + '/permissions', 'POST', {
+          target_type: uploadForm.value.target_type,
+          target_id: uploadForm.value.target_type === 'company' ? null : uploadForm.value.target_id,
+          permission_level: uploadForm.value.permission_level
+        });
+      }
+      loading.value = false;
+      if (successCount > 0) {
+        ElMsg.success('成功上传 ' + successCount + ' 个文件' + (failCount > 0 ? '，' + failCount + ' 个失败' : ''));
+        showUploadDialog.value = false;
+        await loadKbList();
+        if (selectedKb.value) {
+          await loadKbDocs(selectedKb.value.id);
+          await loadKbPerms(selectedKb.value.id);
+        }
+      } else {
+        ElMsg.error('所有文件上传失败');
+      }
+    }
+
+    async function uploadDoc(kbId, params) {
+      const fd = new FormData();
+      fd.append('file', params.file);
+      try {
+        const r = await fetch(apiBase + '/knowledge/bases/' + kbId + '/upload', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token.value },
+          body: fd
+        });
+        if (r.ok) {
+          ElMsg.success('上传成功');
+          await loadKbDocs(kbId);
+          await loadKbList();
+        } else {
+          const d = await r.json().catch(() => ({}));
+          ElMsg.error(d.detail || '上传失败');
+        }
+      } catch (e) {
+        ElMsg.error('上传失败');
+      }
+    }
+
+    async function publishDoc(kbId, docId) {
+      const r = await api('/knowledge/bases/' + kbId + '/documents/' + docId + '/publish', 'POST');
+      if (r !== null) {
+        ElMsg.success('文档已发布');
+        await loadKbDocs(kbId);
+      }
+    }
+
+    async function loadPending() {
+      const r = await api('/approval/pending');
+      if (r) pendingList.value = Array.isArray(r) ? r : [];
+    }
+
+    async function loadChains() {
+      const r = await api('/approval/chains');
+      if (r) chains.value = Array.isArray(r) ? r : [];
+    }
+
+    function openActionDialog(row, approved) {
+      actionInstanceId.value = row.instance_id;
+      actionApproved.value = approved;
+      actionDocTitle.value = row.doc_title;
+      actionComment.value = '';
+      showActionDialog.value = true;
+    }
+
+    async function doApprovalAction() {
+      loading.value = true;
+      const r = await api('/approval/instances/' + actionInstanceId.value + '/action', 'POST', {
+        approved: actionApproved.value,
+        comment: actionComment.value
+      });
+      loading.value = false;
+      if (r !== null) {
+        ElMsg.success(actionApproved.value ? '已批准' : '已驳回');
+        showActionDialog.value = false;
+        await loadPending();
+      }
+    }
+
+    function openChainCreate() {
+      chainEditMode.value = false;
+      chainEditId.value = null;
+      chainForm.value = { name: '', steps: [{ approver_type: '', label: '' }] };
+      showChainDialog.value = true;
+    }
+
+    function openChainEdit(row) {
+      chainEditMode.value = true;
+      chainEditId.value = row.id;
+      chainForm.value = {
+        name: row.name,
+        steps: (row.steps || []).map(s => ({ approver_type: s.approver_type, label: s.label || '' }))
+      };
+      showChainDialog.value = true;
+    }
+
+    async function saveChain() {
+      if (!chainForm.value.name) { ElMsg.warning('请输入审批链名称'); return; }
+      const validSteps = chainForm.value.steps.filter(s => s.approver_type);
+      if (!validSteps.length) { ElMsg.warning('请至少配置一个审批步骤'); return; }
+      loading.value = true;
+      let r;
+      if (chainEditMode.value) {
+        r = await api('/approval/chains/' + chainEditId.value, 'PUT', { name: chainForm.value.name, steps: validSteps });
+      } else {
+        r = await api('/approval/chains', 'POST', { name: chainForm.value.name, steps: validSteps });
+      }
+      loading.value = false;
+      if (r !== null) {
+        ElMsg.success(chainEditMode.value ? '更新成功' : '创建成功');
+        showChainDialog.value = false;
+        await loadChains();
+      }
+    }
+
+    async function doDeleteChain(row) {
+      try {
+        await ElMsgBox.confirm('确定删除审批链「' + row.name + '」？', '删除确认', { type: 'warning' });
+      } catch { return; }
+      const r = await api('/approval/chains/' + row.id, 'DELETE');
+      if (r !== null) {
+        ElMsg.success('删除成功');
+        await loadChains();
+      }
+    }
+
+    async function loadGroups() {
+      const r = await api('/project-groups/');
+      if (r) groups.value = Array.isArray(r) ? r : [];
+    }
+
+    function openGroupCreate() {
+      groupEditMode.value = false;
+      groupEditId.value = null;
+      groupForm.value = { name: '', description: '', member_ids: [] };
+      showGroupDialog.value = true;
+    }
+
+    function openGroupEdit(row) {
+      groupEditMode.value = true;
+      groupEditId.value = row.id;
+      groupForm.value = {
+        name: row.name,
+        description: row.description || '',
+        member_ids: (row.members || []).map(m => m.id || m)
+      };
+      showGroupDialog.value = true;
+    }
+
+    async function saveGroup() {
+      if (!groupForm.value.name) { ElMsg.warning('请输入项目组名称'); return; }
+      loading.value = true;
+      let r;
+      if (groupEditMode.value) {
+        r = await api('/project-groups/' + groupEditId.value + '/members', 'PUT', { member_ids: groupForm.value.member_ids });
+        if (r !== null) {
+          r = await api('/project-groups/' + groupEditId.value, 'PUT', { name: groupForm.value.name, description: groupForm.value.description });
+        }
+      } else {
+        r = await api('/project-groups/', 'POST', groupForm.value);
+      }
+      loading.value = false;
+      if (r !== null) {
+        ElMsg.success(groupEditMode.value ? '更新成功' : '创建成功');
+        showGroupDialog.value = false;
+        await loadGroups();
+      }
+    }
+
+    async function doDeleteGroup(row) {
+      try {
+        await ElMsgBox.confirm('确定删除项目组「' + row.name + '」？', '删除确认', { type: 'warning' });
+      } catch { return; }
+      const r = await api('/project-groups/' + row.id, 'DELETE');
+      if (r !== null) {
+        ElMsg.success('删除成功');
+        await loadGroups();
+      }
+    }
+
+    async function openDocPermDialog(doc) {
+      docPermDocTitle.value = doc.title;
+      docPermDocId.value = doc.id;
+      showDocPermAddRow.value = false;
+      docPermForm.value = { target_type: 'company', target_id: null, permission_level: 'view' };
+      await Promise.all([loadUsers(), loadDeptTree(), loadGroups()]);
+      showDocPermDialog.value = true;
+      await loadDocPerms();
+    }
+
+    async function loadDocPerms() {
+      if (!selectedKb.value || !docPermDocId.value) return;
+      docPermLoading.value = true;
+      const r = await api('/knowledge/bases/' + selectedKb.value.id + '/documents/' + docPermDocId.value + '/permissions');
+      docPermLoading.value = false;
+      docPermList.value = r ? (Array.isArray(r) ? r : []) : [];
+    }
+
+    async function addDocPerm() {
+      if (docPermForm.value.target_type !== 'company' && !docPermForm.value.target_id) {
+        ElMsg.warning('请选择授权对象');
+        return;
+      }
+      loading.value = true;
+      const r = await api('/knowledge/bases/' + selectedKb.value.id + '/documents/' + docPermDocId.value + '/permissions', 'POST', {
+        target_type: docPermForm.value.target_type,
+        target_id: docPermForm.value.target_type === 'company' ? null : docPermForm.value.target_id,
+        permission_level: docPermForm.value.permission_level
+      });
+      loading.value = false;
+      if (r !== null) {
+        ElMsg.success('文档权限添加成功');
+        showDocPermAddRow.value = false;
+        docPermForm.value = { target_type: 'company', target_id: null, permission_level: 'view' };
+        await loadDocPerms();
+        await loadKbDocs(selectedKb.value.id);
+      }
+    }
+
+    async function removeDocPerm(permId) {
+      try {
+        await ElMsgBox.confirm('确定删除此文档权限？', '删除确认', { type: 'warning' });
+      } catch { return; }
+      const r = await api('/knowledge/bases/' + selectedKb.value.id + '/documents/' + docPermDocId.value + '/permissions/' + permId, 'DELETE');
+      if (r !== null) {
+        ElMsg.success('文档权限已删除');
+        await loadDocPerms();
+        await loadKbDocs(selectedKb.value.id);
+      }
+    }
+
+    function loadRagflowConfig() {
+      const saved = localStorage.getItem('ragflow_config');
+      if (saved) {
+        try { ragflowConfig.value = JSON.parse(saved); } catch {}
+      }
+    }
+
+    function saveRagflowConfig() {
+      localStorage.setItem('ragflow_config', JSON.stringify(ragflowConfig.value));
+      ragflowMsg.value = '配置已保存';
+      ragflowMsgType.value = 'success';
+    }
+
+    async function testRagflowSilent() {
+      try {
+        const r = await api('/ragflow/status');
+        ragflowConnected.value = r && r.connected;
+        if (ragflowConnected.value) await loadRagflowDatasets();
+      } catch {}
+    }
+
+    async function testRagflow() {
+      ragflowMsg.value = '正在测试连接...';
+      ragflowMsgType.value = 'info';
+      loading.value = true;
+      const r = await api('/ragflow/status');
+      loading.value = false;
+      if (r && r.connected) {
+        ragflowMsg.value = '✅ ' + (r.message || '连接成功');
+        ragflowMsgType.value = 'success';
+        ragflowConnected.value = true;
+        await loadRagflowDatasets();
+      } else {
+        ragflowMsg.value = '❌ ' + (r ? r.message : '连接失败');
+        ragflowMsgType.value = 'error';
+        ragflowConnected.value = false;
+      }
+    }
+
+    async function loadRagflowDatasets() {
+      const r = await api('/ragflow/datasets');
+      if (r && r.success) {
+        ragflowDatasets.value = r.data || [];
+      } else {
+        ragflowDatasets.value = [];
+      }
+    }
+
+    function onChatUserChange() {
+      chatUser.value = users.value.find(u => u.id === chatUserId.value) || null;
+      chatMessages.value = [];
+    }
+
+    async function sendChat() {
+      if (!chatUser.value || !chatQuestion.value || chatLoading.value) return;
+      const q = chatQuestion.value;
+      chatMessages.value.push({ role: 'user', content: q });
+      chatQuestion.value = '';
+      chatLoading.value = true;
+      try {
+        const dingtalkId = chatUser.value.dingtalk_userid;
+        if (!dingtalkId) {
+          chatMessages.value.push({ role: 'assistant', content: '该用户没有钉钉ID(dingtalk_userid)，无法模拟智能体对话。请先同步钉钉组织架构。' });
+          chatLoading.value = false;
+          return;
+        }
+        const body = { dingtalk_userid: dingtalkId, question: q };
+        if (chatKbIds.value.length > 0) body.kb_ids = chatKbIds.value;
+        const r = await api('/ragflow/agent-chat', 'POST', body);
+        if (r && r.success) {
+          chatMessages.value.push({ role: 'assistant', content: r.answer, kbs: r.accessible_kbs });
+        } else {
+          chatMessages.value.push({ role: 'assistant', content: r ? (r.answer || '查询失败') : '网络错误' });
+        }
+      } catch (e) {
+        chatMessages.value.push({ role: 'assistant', content: '请求异常: ' + e.message });
+      }
+      chatLoading.value = false;
+    }
+
+    function saveDingtalk() {
+      if (!dingtalkConfig.value.appid || !dingtalkConfig.value.appsecret) {
+        dingtalkMsg.value = '请填写 AppID 和 AppSecret';
+        dingtalkMsgType.value = 'error';
+        return;
+      }
+      localStorage.setItem('dingtalk_appid', dingtalkConfig.value.appid);
+      localStorage.setItem('dingtalk_appsecret', dingtalkConfig.value.appsecret);
+      dingtalkMsg.value = '配置已保存到本地';
+      dingtalkMsgType.value = 'success';
+    }
+
+    async function testDingtalk() {
+      dingtalkMsg.value = '';
+      if (!dingtalkConfig.value.appid || !dingtalkConfig.value.appsecret) {
+        dingtalkMsg.value = '请填写 AppID 和 AppSecret';
+        dingtalkMsgType.value = 'error';
+        return;
+      }
+      loading.value = true;
+      try {
+        const r = await fetch(apiBase + '/dingtalk/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appid: dingtalkConfig.value.appid, appsecret: dingtalkConfig.value.appsecret })
+        });
+        loading.value = false;
+        const d = await r.json();
+        if (r.ok && d.success) {
+          dingtalkMsg.value = d.message || '连接成功';
+          dingtalkMsgType.value = 'success';
+        } else {
+          dingtalkMsg.value = d.message || d.detail || '连接失败';
+          dingtalkMsgType.value = 'error';
+        }
+      } catch (e) {
+        loading.value = false;
+        dingtalkMsg.value = '无法连接到后端服务';
+        dingtalkMsgType.value = 'error';
+      }
+    }
+
+    async function syncDingtalk() {
+      dingtalkMsg.value = '';
+      if (!dingtalkConfig.value.appid || !dingtalkConfig.value.appsecret) {
+        dingtalkMsg.value = '请先填写 AppID 和 AppSecret';
+        dingtalkMsgType.value = 'error';
+        return;
+      }
+      if (!token.value) {
+        dingtalkMsg.value = '请先登录';
+        dingtalkMsgType.value = 'error';
+        return;
+      }
+      dingtalkMsg.value = '正在同步中，请稍候...';
+      dingtalkMsgType.value = 'info';
+      loading.value = true;
+      try {
+        const r = await fetch(apiBase + '/dingtalk/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token.value },
+          body: JSON.stringify({ appid: dingtalkConfig.value.appid, appsecret: dingtalkConfig.value.appsecret })
+        });
+        loading.value = false;
+        const d = await r.json();
+        if (r.ok && d.success) {
+          dingtalkMsg.value = d.message || '同步成功';
+          dingtalkMsgType.value = 'success';
+          await loadAll();
+        } else {
+          dingtalkMsg.value = d.message || d.detail || '同步失败';
+          dingtalkMsgType.value = 'error';
+        }
+      } catch (e) {
+        loading.value = false;
+        dingtalkMsg.value = '无法连接到后端服务';
+        dingtalkMsgType.value = 'error';
+      }
+    }
+
+    function updateStats() {
+      stats.value.users = users.value.length;
+      let deptCount = 0;
+      function cnt(nodes) { for (const n of nodes) { deptCount++; if (n.children) cnt(n.children); } }
+      cnt(deptTree.value);
+      stats.value.depts = deptCount;
+      stats.value.kbs = kbList.value.length;
+      stats.value.groups = groups.value.length;
+      stats.value.pending = pendingList.value.length;
+      stats.value.chains = chains.value.length;
+    }
+
+    function formatSize(bytes) {
+      if (!bytes) return '-';
+      const b = Number(bytes);
+      if (isNaN(b)) return String(bytes);
+      if (b < 1024) return b + ' B';
+      if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+      return (b / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function docStatusType(status) {
+      const map = { pending: 'warning', approved: 'success', rejected: 'danger', published: '' };
+      return map[status] || 'info';
+    }
+
+    function docStatusLabel(status) {
+      const map = { pending: '待审批', approved: '已通过', rejected: '已驳回', published: '已发布' };
+      return map[status] || status || '-';
+    }
+
+    function permLevelLabel(level) {
+      const map = { view: '查看', download: '下载', upload: '上传', manage: '管理' };
+      return map[level] || level || '-';
+    }
+
+    function permLevelType(level) {
+      const map = { view: 'info', download: '', upload: 'warning', manage: 'danger' };
+      return map[level] || 'info';
+    }
+
+    function targetTypeLabel(type) {
+      const map = { company: '全公司', department: '部门', individual: '个人', project_group: '项目组' };
+      return map[type] || type || '-';
+    }
+
+    function approverTypeLabel(type) {
+      const map = { department_admin: '部门管理员', kb_admin: '知识库管理员', admin: '系统管理员', specific_user: '指定用户' };
+      return map[type] || type || '-';
+    }
+
+    onMounted(() => {
+      if (token.value) loadUser();
+      const savedId = localStorage.getItem('dingtalk_appid');
+      const savedSecret = localStorage.getItem('dingtalk_appsecret');
+      if (savedId) dingtalkConfig.value.appid = savedId;
+      if (savedSecret) dingtalkConfig.value.appsecret = savedSecret;
+    });
+
+    return {
+      currentUser, token, loading, tab,
+      loginForm, loginError, showRegister, regForm, regError,
+      users, userSearch, filteredUsers, orgSubTab,
+      deptTree, deptMembers, selectedDeptId, selectedDeptName, flatDepts,
+      kbList, selectedKb, kbDetailTab, kbDocs, kbDocsLoading, kbPerms, kbPermsLoading,
+      showKbDialog, kbForm, kbEditMode, kbEditId,
+      showPermDialog, permForm, permTargetOptions, permTargetPlaceholder,
+      showUploadDialog, uploadForm, uploadFileList, uploadTargetOptions, uploadTargetPlaceholder,
+      pendingList, chains,
+      showChainDialog, chainForm, chainEditMode, chainEditId,
+      showActionDialog, actionInstanceId, actionApproved, actionComment, actionDocTitle,
+      groups, showGroupDialog, groupForm, groupEditMode, groupEditId,
+      showDocPermDialog, docPermDocTitle, docPermDocId, docPermList, docPermLoading, showDocPermAddRow, docPermForm,
+      dingtalkConfig, dingtalkMsg, dingtalkMsgType,
+      ragflowConfig, ragflowMsg, ragflowMsgType, ragflowConnected, ragflowDatasets,
+      chatUserId, chatUser, chatKbIds, chatQuestion, chatMessages, chatLoading, chatAccessibleKbs,
+      stats,
+      doLogin, doRegister, logout, handleHeaderCmd, onMenuSelect,
+      onDeptNodeClick,
+      onKbRowClick, loadKbDocs, loadKbPerms,
+      openKbCreate, openKbEdit, saveKb, doDeleteKb,
+      openPermDialog, addPermission, removePerm, onPermTargetTypeChange,
+      openUploadDialog, onUploadFileChange, onUploadFileRemove, doUploadDocs, onUploadTargetTypeChange,
+      uploadDoc, publishDoc,
+      openDocPermDialog, loadDocPerms, addDocPerm, removeDocPerm,
+      saveRagflowConfig, testRagflow, loadRagflowDatasets,
+      onChatUserChange, sendChat,
+      openActionDialog, doApprovalAction,
+      openChainCreate, openChainEdit, saveChain, doDeleteChain,
+      openGroupCreate, openGroupEdit, saveGroup, doDeleteGroup,
+      saveDingtalk, testDingtalk, syncDingtalk,
+      formatSize, docStatusType, docStatusLabel,
+      permLevelLabel, permLevelType, targetTypeLabel, approverTypeLabel
+    };
+  }
+}).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Database
+*.db
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
+# Uploads
+backend/uploads/
+
+# Logs
+*.log
+logs/
+
+# Node
+node_modules/
+
+# Trae
+.trae/
+
+# Test / Debug files
+browser_test.html
+el_select_test.html
+key_test.html
+test.html
+test_perm_select.html
+verify_actual_page.html
+run_test.js
+
+# Temporary scripts
+*.ps1
+!deploy.ps1
+
+# Database dumps
+*.sql.bak

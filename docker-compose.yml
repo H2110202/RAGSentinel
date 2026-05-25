@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8088:8088"
+    environment:
+      - RAGFLOW_URL=${RAGFLOW_URL:-http://ragflow:9380}
+      - RAGFLOW_API_KEY=${RAGFLOW_API_KEY}
+      - DINGTALK_APPID=${DINGTALK_APPID:-}
+      - DINGTALK_APPSECRET=${DINGTALK_APPSECRET:-}
+      - SECRET_KEY=${SECRET_KEY:-change-this-secret-key-in-production}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/permission_admin.db}
+    volumes:
+      - backend_data:/app/data
+      - backend_uploads:/app/uploads
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend_data:
+  backend_uploads:
