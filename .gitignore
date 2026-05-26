@@ -63,3 +63,13 @@ run_test.js
 
 # Database dumps
 *.sql.bak
+
+# RAGFlow deployment config (internal)
+ragflow/
+
+# Temporary push scripts
+push_to_github*.py
+sync_to_github.py
+create_repo*.py
+check_scopes.py
+check_token.py

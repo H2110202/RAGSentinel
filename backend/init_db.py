@@ -16,17 +16,18 @@ def init_db():
     try:
         admin = db.query(User).filter(User.username == "admin").first()
         if not admin:
+            default_password = os.getenv("ADMIN_DEFAULT_PASSWORD", "changeme")
             admin = User(
                 username="admin",
                 email="admin@ragsentinel.local",
                 full_name="System Administrator",
-                hashed_password=get_password_hash("admin123"),
+                hashed_password=get_password_hash(default_password),
                 role="admin",
                 is_active=True,
             )
             db.add(admin)
             db.commit()
-            print("Default admin user created (username: admin, password: admin123)")
+            print(f"Default admin user created (username: admin, password: {default_password})")
             print("WARNING: Change the default password immediately after first login!")
         else:
             print("Admin user already exists, skipping.")

@@ -7,6 +7,7 @@ from app.models.department import Department, user_departments
 from pydantic import BaseModel
 from typing import Optional
 import httpx
+import os
 
 router = APIRouter()
 
@@ -62,7 +63,7 @@ async def get_dingtalk_qrurl(appid: Optional[str] = None):
     params = urlencode({
         "appid": aid, "response_type": "code", "scope": "openid",
         "state": "perm_admin",
-        "redirect_uri": "http://localhost:8088/api/auth/dingtalk/callback"
+        "redirect_uri": os.getenv("DINGTALK_REDIRECT_URI", "http://localhost:8088/api/auth/dingtalk/callback")
     })
     return {"success": True, "qrurl": f"https://login.dingtalk.com/oauth2/auth?{params}"}
 

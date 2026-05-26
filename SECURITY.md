@@ -12,7 +12,7 @@ We take the security of RAGSentinel seriously. If you have discovered a security
 
 ### Please DO
 
-- Report the vulnerability by emailing **security@ragsentinel.dev** (or open a private [GitHub Security Advisory](https://github.com/H2110202/RAGSentinel/security/advisories/new))
+- Report the vulnerability by opening a private [GitHub Security Advisory](https://github.com/RAGSentinel/RAGSentinel/security/advisories/new)
 - Include a clear description of the vulnerability
 - Provide steps to reproduce the issue
 - If possible, suggest a fix or mitigation
@@ -28,7 +28,7 @@ We take the security of RAGSentinel seriously. If you have discovered a security
 
 ### Known Security Considerations
 
-- **Default admin credentials**: The initial `admin/admin123` account must be changed immediately after deployment
+- **Default admin credentials**: The initial admin account password is set via `ADMIN_DEFAULT_PASSWORD` env var (default: `changeme`) — must be changed immediately after deployment
 - **SECRET_KEY**: Must be changed from the default value in production
 - **CORS**: Default configuration allows all origins (`*`); restrict this in production
 - **SQLite**: Suitable for small-to-medium deployments; consider PostgreSQL for production scale

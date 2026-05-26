@@ -47,7 +47,7 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 ```bash
 # Clone your fork
-git clone https://github.com/H2110202/RAGSentinel.git
+git clone https://github.com/RAGSentinel/RAGSentinel.git
 cd RAGSentinel
 
 # Backend setup
@@ -78,14 +78,19 @@ RAGSentinel/
 │   │   ├── models/       # SQLAlchemy models
 │   │   └── schemas/      # Pydantic schemas
 │   ├── uploads/          # Uploaded documents
+│   ├── init_db.py        # Database initialization
 │   ├── requirements.txt
 │   └── run.py
 ├── frontend/
 │   ├── index.html        # Single-page Vue 3 app
-│   └── server.js         # Static file server
-├── ragflow/              # RAGFlow Docker config
+│   ├── server.js         # Static file server
+│   └── package.json
+├── .github/              # Issue/PR templates
 ├── docker-compose.yml
 ├── .env.example
+├── Makefile
+├── CHANGELOG.md
+├── SECURITY.md
 └── README.md
 ```
 

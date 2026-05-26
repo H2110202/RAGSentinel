@@ -134,7 +134,7 @@ KB Permission:  Engineering Dept → View
 ### 1. Clone & Setup
 
 ```bash
-git clone https://github.com/H2110202/RAGSentinel.git
+git clone https://github.com/RAGSentinel/RAGSentinel.git
 cd RAGSentinel
 ```
 
@@ -176,7 +176,7 @@ docker compose up -d
 
 Default admin account:
 - Username: `admin`
-- Password: `admin123`
+- Password: Set via `ADMIN_DEFAULT_PASSWORD` env var (default: `changeme`)
 
 > ⚠️ Change the default password immediately after first login!
 
@@ -242,7 +242,7 @@ Default admin account:
 | Frontend | Vue 3 + Element Plus (CDN, single HTML) |
 | Backend | FastAPI + SQLAlchemy + SQLite |
 | RAG Engine | RAGFlow v0.25+ (Docker) |
-| LLM | DeepSeek / OpenAI / Any OpenAI-compatible |
+| LLM | Any OpenAI-compatible model |
 | Embedding | BAAI/bge-large-zh-v1.5 |
 | Auth | JWT (HS256) |
 | Org Sync | DingTalk Open Platform API |
@@ -267,7 +267,7 @@ Default admin account:
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/H2110202/RAGSentinel.git
+git clone https://github.com/RAGSentinel/RAGSentinel.git
 cd RAGSentinel
 
 # 2. 配置环境变量
@@ -280,7 +280,7 @@ cd backend && pip install -r requirements.txt && python init_db.py && python run
 cd frontend && node server.js
 
 # 5. 访问 http://localhost:3000
-# 默认账号: admin / admin123
+# 默认账号: admin / changeme (通过 ADMIN_DEFAULT_PASSWORD 环境变量设置)
 # API文档: http://localhost:8088/docs
 ```
 

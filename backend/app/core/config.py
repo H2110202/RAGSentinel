@@ -10,7 +10,7 @@ class Config:
     RAGFLOW_API_KEY = os.getenv("RAGFLOW_API_KEY", "")
     RAGFLOW_EMBEDDING_MODEL = os.getenv("RAGFLOW_EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5@BAAI")
     RAGFLOW_CHUNK_METHOD = os.getenv("RAGFLOW_CHUNK_METHOD", "naive")
-    RAGFLOW_LLM_MODEL = os.getenv("RAGFLOW_LLM_MODEL", "deepseek-chat@DeepSeek")
+    RAGFLOW_LLM_MODEL = os.getenv("RAGFLOW_LLM_MODEL", "")
 
     DINGTALK_APPID = os.getenv("DINGTALK_APPID", "")
     DINGTALK_APPSECRET = os.getenv("DINGTALK_APPSECRET", "")

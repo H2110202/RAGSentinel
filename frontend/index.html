@@ -962,7 +962,7 @@ const ElMsgBox = ElementPlus.ElMessageBox;
 
 createApp({
   setup() {
-    const apiBase = 'http://localhost:8088/api';
+    const apiBase = (window.__RAGSENTINEL_API_URL__ || 'http://localhost:8088/api');
 
     const currentUser = ref(null);
     const token = ref(localStorage.getItem('perm_token') || '');
@@ -1033,7 +1033,7 @@ createApp({
     const dingtalkMsg = ref('');
     const dingtalkMsgType = ref('info');
 
-    const ragflowConfig = ref({ url: 'http://localhost:9380', apikey: '' });
+    const ragflowConfig = ref({ url: '', apikey: '' });
     const ragflowMsg = ref('');
     const ragflowMsgType = ref('info');
     const ragflowConnected = ref(false);
